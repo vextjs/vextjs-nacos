@@ -142,22 +142,40 @@ import { createNacosBootstrapProvider } from "vextjs-nacos";
 
 export default defineBootstrapConfig({
   providers: [
-    createNacosBootstrapProvider({
-      name: "admin-nacos-bootstrap",
-      serverAddr: process.env.NACOS_SERVER_ADDR ?? "127.0.0.1:8848",
-      namespace: process.env.NACOS_NAMESPACE ?? "public",
-      username: process.env.NACOS_USERNAME,
-      password: process.env.NACOS_PASSWORD,
-      configs: [
-        { dataId: "config.json", group: "admin-service" },
-        { dataId: "database.json", group: "admin-service" },
-      ],
-    }),
+    {
+      name: "nacos-config",
+      async load() {
+        const provider = createNacosBootstrapProvider({
+          name: "admin-nacos-bootstrap",
+          serverAddr: process.env.NACOS_SERVER_ADDR ?? "127.0.0.1:8848",
+          namespace: process.env.NACOS_NAMESPACE ?? "public",
+          username: process.env.NACOS_USERNAME,
+          password: process.env.NACOS_PASSWORD,
+          configs: [
+            { dataId: "config.json", group: "db-config" }
+          ],
+        });
+
+        return {
+            remoteConfig: await provider.load()
+        };
+      },
+    },
   ],
 });
 ```
 
-该 helper 只负责**启动期批量拉取并合并 JSON 对象 patch**，不会执行服务注册、`app.nacos` 挂载或 `app.remoteConfig` 订阅；这些运行期能力仍由 `nacosPlugin()` 负责。
+这份返回值会进入 **`app.config` 的 provider patch 合并链路**，适合数据库、密钥、基础设施配置这类必须在配置冻结前生效的内容。
+
+该 helper **不会自动注入 `app.remoteConfig`**，也不会执行服务注册、`app.nacos` 挂载或运行期订阅；这些运行期能力仍由 `nacosPlugin()` 负责。
+
+如果你需要：
+
+- 服务注册 / 服务发现
+- 与插件一致的 `app.remoteConfig` 行为
+- 配置变更后的持续订阅更新
+
+都应该继续在 `src/plugins/nacos.ts` 中使用 `nacosPlugin()` 处理，而不是在 bootstrap 阶段完成。
 
 ## API
 
