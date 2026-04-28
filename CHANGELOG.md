@@ -4,6 +4,13 @@ All notable changes to `vextjs-nacos` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-04-28
+
+### 修复
+
+- **发布兼容性**：补齐 `package.json` 的 `exports.require` 与 `main` CJS 入口，修复消费项目在 `bootstrap.ts` / CJS 加载链路下无法根导入 `vextjs-nacos` 的问题
+- **构建产物一致性**：将构建改为同时生成 ESM `dist/index.js` 与 CJS `dist/index.cjs`，确保 `createNacosBootstrapProvider()` 等最新导出在两个入口中保持一致
+
 ### 新增
 
 - **bootstrap config provider helper**：新增 `createNacosBootstrapProvider()`，支持在 Vext 配置冻结前从 Nacos 拉取启动期配置 patch

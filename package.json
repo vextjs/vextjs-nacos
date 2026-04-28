@@ -1,14 +1,17 @@
 {
   "name": "vextjs-nacos",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Official Nacos plugin for VextJS — service registry/discovery and dynamic config management",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -18,7 +21,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "npm run build:esm && npm run build:cjs && node scripts/finalize-build.mjs",
+    "build:esm": "tsc -p tsconfig.build.json",
+    "build:cjs": "tsc -p tsconfig.build.cjs.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
