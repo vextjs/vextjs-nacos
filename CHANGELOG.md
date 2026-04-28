@@ -2,6 +2,17 @@
 
 All notable changes to `vextjs-nacos` will be documented in this file.
 
+## [Unreleased]
+
+### 新增
+
+- **bootstrap config provider helper**：新增 `createNacosBootstrapProvider()`，支持在 Vext 配置冻结前从 Nacos 拉取启动期配置 patch
+- **多配置拉取**：`nacosPlugin()` 与 bootstrap helper 均支持 `config + configs` 双轨声明，按声明顺序深合并、后者优先
+
+### 变更
+
+- **兼容性**：bootstrap helper 依赖 Vext bootstrap provider 能力，最低 `vextjs` 版本提升到 `>= 0.3.2`
+
 ## [0.1.0] — 2026-04-27
 
 🎉 首次发布

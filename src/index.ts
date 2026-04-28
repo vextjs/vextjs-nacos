@@ -58,8 +58,42 @@ export interface NacosPluginOptions {
   password?: string;
   /** 服务注册配置（缺省则不注册当前服务）*/
   service?: NacosServiceOptions;
-  /** 配置中心配置（缺省则不订阅配置）*/
+  /** 单个配置中心配置（缺省则不订阅配置）*/
   config?: NacosConfigOptions;
+  /** 多个配置中心配置（按声明顺序深合并，后者优先）*/
+  configs?: NacosConfigOptions[];
+}
+
+export interface NacosBootstrapProviderOptions {
+  /** provider 名称，默认 `nacos-bootstrap-provider` */
+  name?: string;
+  /** provider 超时（毫秒） */
+  timeoutMs?: number;
+  /** provider 是否必需 */
+  required?: boolean;
+  /** Nacos 服务器地址，如 "127.0.0.1:8848" */
+  serverAddr: string;
+  /** 命名空间，默认 "public" */
+  namespace?: string;
+  /** Nacos 鉴权用户名 */
+  username?: string;
+  /** Nacos 鉴权密码 */
+  password?: string;
+  /** 单个配置中心配置 */
+  config?: NacosConfigOptions;
+  /** 多个配置中心配置（按声明顺序深合并，后者优先） */
+  configs?: NacosConfigOptions[];
+}
+
+export interface NacosBootstrapProvider {
+  /** provider 名称 */
+  name: string;
+  /** provider 超时（毫秒） */
+  timeoutMs?: number;
+  /** provider 是否必需 */
+  required?: boolean;
+  /** 加载启动期配置 patch */
+  load(): Promise<Record<string, unknown>>;
 }
 
 export interface NacosExtension {
@@ -113,6 +147,156 @@ function createNacosLogger(app: VextApp) {
 const DEFAULT_GROUP = "DEFAULT_GROUP";
 const DEFAULT_NAMESPACE = "public";
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function deepMerge<T extends Record<string, unknown>>(
+  target: T,
+  source: Record<string, unknown>,
+): T {
+  const result = { ...target } as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(source)) {
+    const current = result[key];
+
+    if (isPlainObject(current) && isPlainObject(value)) {
+      result[key] = deepMerge(current, value);
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return result as T;
+}
+
+function normalizeConfigEntries(options: {
+  config?: NacosConfigOptions;
+  configs?: NacosConfigOptions[];
+}): Array<Required<NacosConfigOptions>> {
+  const entries = [
+    ...(options.config ? [options.config] : []),
+    ...(options.configs ?? []),
+  ];
+
+  return entries.map((entry, index) => {
+    if (!entry?.dataId || typeof entry.dataId !== "string") {
+      throw new Error(
+        `[vextjs-nacos] Invalid config entry at index ${index}: dataId is required.`,
+      );
+    }
+
+    return {
+      dataId: entry.dataId,
+      group: entry.group ?? DEFAULT_GROUP,
+    };
+  });
+}
+
+function createConfigClientOptions(options: {
+  serverAddr: string;
+  namespace?: string;
+  username?: string;
+  password?: string;
+}) {
+  return {
+    serverAddr: options.serverAddr,
+    namespace: options.namespace ?? DEFAULT_NAMESPACE,
+    username: options.username,
+    password: options.password,
+  };
+}
+
+function parseConfigObject(
+  raw: string,
+  label: string,
+): Record<string, unknown> | null {
+  if (!raw.trim()) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`[vextjs-nacos] Config parse failed for ${label}: ${reason}`);
+  }
+
+  if (!isPlainObject(parsed)) {
+    throw new Error(
+      `[vextjs-nacos] Config ${label} must be a JSON object to merge into Vext config.`,
+    );
+  }
+
+  return parsed;
+}
+
+async function loadConfigEntry(
+  configClient: NacosConfigClient,
+  entry: Required<NacosConfigOptions>,
+): Promise<Record<string, unknown> | null> {
+  const raw = await configClient.getConfig(entry.dataId, entry.group);
+  return typeof raw === "string"
+    ? parseConfigObject(raw, `${entry.dataId}@${entry.group}`)
+    : null;
+}
+
+function mergeConfigEntries(
+  entries: Array<Required<NacosConfigOptions>>,
+  state: Map<string, Record<string, unknown>>,
+): Record<string, unknown> {
+  return entries.reduce<Record<string, unknown>>((merged, entry) => {
+    const patch = state.get(`${entry.dataId}@${entry.group}`);
+    return patch ? deepMerge(merged, patch) : merged;
+  }, {});
+}
+
+export function createNacosBootstrapProvider(
+  options: NacosBootstrapProviderOptions,
+): NacosBootstrapProvider {
+  if (!options.serverAddr) {
+    throw new Error("[vextjs-nacos] createNacosBootstrapProvider requires serverAddr.");
+  }
+
+  const entries = normalizeConfigEntries(options);
+  if (entries.length === 0) {
+    throw new Error(
+      "[vextjs-nacos] createNacosBootstrapProvider requires config or configs.",
+    );
+  }
+
+  return {
+    name: options.name ?? "nacos-bootstrap-provider",
+    timeoutMs: options.timeoutMs,
+    required: options.required,
+    async load() {
+      const configClient = new NacosConfigClient(createConfigClientOptions(options));
+
+      try {
+        const state = new Map<string, Record<string, unknown>>();
+
+        for (const entry of entries) {
+          const patch = await loadConfigEntry(configClient, entry);
+          if (patch) {
+            state.set(`${entry.dataId}@${entry.group}`, patch);
+          }
+        }
+
+        return mergeConfigEntries(entries, state);
+      } finally {
+        configClient.close();
+      }
+    },
+  };
+}
+
 // ── 插件工厂 ───────────────────────────────────────────────
 
 /**
@@ -131,6 +315,8 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
         ...options,
       };
 
+      const configEntries = normalizeConfigEntries(opts);
+
       if (!opts.serverAddr) {
         app.logger.warn("[vextjs-nacos] serverAddr missing, plugin disabled");
         return;
@@ -145,49 +331,64 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
       // 这样保证关闭时：先 deregister（停流量）→ 再 config.close
 
       // ── 2. 配置中心（config 配置存在时，先处理）─────────
-      if (opts.config) {
-        const { dataId, group } = opts.config;
-        const cGroup = group ?? DEFAULT_GROUP;
-
-        const configClient = new NacosConfigClient({
-          serverAddr: opts.serverAddr,   // ⚠️ ConfigClient 字段名是 serverAddr（与 NamingClient 不同）
-          namespace,
-          username: opts.username,
-          password: opts.password,
-        });
+      if (configEntries.length > 0) {
+        const configClient = new NacosConfigClient(
+          createConfigClientOptions({
+            serverAddr: opts.serverAddr,
+            namespace,
+            username: opts.username,
+            password: opts.password,
+          }),
+        );
         // ❌ NacosConfigClient 在 nacos@2.6.1 中没有 ready() 方法
 
-        // 拉取初始配置
-        try {
-          const raw = await configClient.getConfig(dataId, cGroup);
-          if (raw) {
-            try {
-              app.extend("remoteConfig", JSON.parse(raw));
-              app.logger.info(`[vextjs-nacos] Remote config loaded: ${dataId}@${cGroup}`);
-            } catch {
-              app.logger.warn(
-                `[vextjs-nacos] Initial config parse failed (not JSON): ${dataId}`,
-              );
-            }
-          }
-        } catch (err) {
-          app.logger.warn(
-            `[vextjs-nacos] Initial config fetch failed: ${(err as Error).message}`,
-          );
-        }
+        const state = new Map<string, Record<string, unknown>>();
 
-        // 监听变更
-        configClient.subscribe({ dataId, group: cGroup }, (content: unknown) => {
-          if (typeof content !== "string") return;
+        const syncRemoteConfig = () => {
+          const merged = mergeConfigEntries(configEntries, state);
+          app.extend("remoteConfig", merged);
+        };
+
+        for (const entry of configEntries) {
+          const key = `${entry.dataId}@${entry.group}`;
+
           try {
-            app.extend("remoteConfig", JSON.parse(content));
-            app.logger.info(`[vextjs-nacos] Remote config updated: ${dataId}@${cGroup}`);
-          } catch {
+            const patch = await loadConfigEntry(configClient, entry);
+            if (patch) {
+              state.set(key, patch);
+              syncRemoteConfig();
+              app.logger.info(`[vextjs-nacos] Remote config loaded: ${key}`);
+            }
+          } catch (err) {
             app.logger.warn(
-              `[vextjs-nacos] Updated config parse failed (not JSON): ${dataId}`,
+              `[vextjs-nacos] Initial config fetch failed: ${(err as Error).message}`,
             );
           }
-        });
+
+          // 监听变更
+          configClient.subscribe(
+            { dataId: entry.dataId, group: entry.group },
+            (content: unknown) => {
+              if (typeof content !== "string") return;
+
+              try {
+                const patch = parseConfigObject(content, key);
+                if (patch) {
+                  state.set(key, patch);
+                } else {
+                  state.delete(key);
+                }
+
+                syncRemoteConfig();
+                app.logger.info(`[vextjs-nacos] Remote config updated: ${key}`);
+              } catch {
+                app.logger.warn(
+                  `[vextjs-nacos] Updated config parse failed (not JSON object): ${key}`,
+                );
+              }
+            },
+          );
+        }
 
         // 配置客户端关闭 onClose（先注册 → LIFO 后执行）
         app.onClose(async () => {
