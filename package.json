@@ -1,6 +1,6 @@
 {
   "name": "vextjs-nacos",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Official Nacos plugin for VextJS — service registry/discovery and dynamic config management",
   "type": "module",
   "main": "./dist/index.cjs",
