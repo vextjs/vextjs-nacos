@@ -116,7 +116,7 @@ declare module "vextjs" {
     /** Nacos 集成对象（由 vextjs-nacos 插件挂载） */
     nacos?: NacosExtension;
     /** 来自 Nacos 配置中心的远程配置 */
-    remoteConfig?: Record<string, unknown>;
+    remoteConfig?: Record<string, any>;
   }
   interface VextConfig {
     /** Nacos 插件配置（同 NacosPluginOptions）*/
