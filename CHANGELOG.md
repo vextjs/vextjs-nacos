@@ -4,6 +4,13 @@ All notable changes to `vextjs-nacos` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-05-13
+
+### 变更
+
+- **兼容性基线**：将 `vextjs` 的最低兼容版本提升到 `>= 0.3.4`，与已发布的 `vextjs@0.3.4` 基线保持一致
+- **发布元数据**：同步 README、包元数据与发布日志，明确常规消费场景直接使用 npm semver 即可，不需要本地 link
+
 ## [0.2.1] — 2026-04-28
 
 ### 修复

@@ -20,14 +20,23 @@
 | 依赖 | 版本 |
 |------|------|
 | Node.js | `>= 18` |
-| vextjs | `>= 0.3.2`（peerDependency, optional）|
+| vextjs | `>= 0.3.4`（peerDependency, optional）|
 | nacos | `^2.6.1`（已实测）|
 
 ## 安装
 
 ```bash
-npm install vextjs-nacos
+npm install vextjs@^0.3.4 vextjs-nacos
 ```
+
+常规消费场景直接走 npm 版本依赖即可，不需要本地 `link`。
+只有你在当前工作区联调未发布改动时，才需要保留 `file:` 依赖或其他本地联调方式。
+
+## 发布说明
+
+- 当前发版线：`0.2.3`
+- 当前 `vextjs` 兼容基线：`>= 0.3.4`
+- 本次发版不引入新的运行时 API，只收口已发布 `vextjs@0.3.4` 对齐所需的版本与文档元数据
 
 ## 快速开始
 
