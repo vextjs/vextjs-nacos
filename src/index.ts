@@ -23,7 +23,7 @@
 
 import { NacosNamingClient, NacosConfigClient } from "nacos";
 import { definePlugin } from "vextjs";
-import type { VextApp } from "vextjs";
+import type { VextApp, VextPluginContext } from "vextjs";
 
 // ── 公共类型定义 ────────────────────────────────────────────
 
@@ -130,13 +130,13 @@ declare module "vextjs" {
  * 将 nacos SDK 的 logger 接口（一元 string 签名）桥接到 app.logger
  * NacosNamingClientConfig.logger 在 nacos@2.6.1 中是必填字段（typeof console）。
  */
-function createNacosLogger(app: VextApp) {
+function createNacosLogger(app: VextPluginContext) {
   return {
-    info(msg: string)  { app.logger.debug({ source: "nacos" }, msg); },
-    warn(msg: string)  { app.logger.warn({ source: "nacos" }, msg);  },
+    info(msg: string) { app.logger.debug({ source: "nacos" }, msg); },
+    warn(msg: string) { app.logger.warn({ source: "nacos" }, msg); },
     error(msg: string) { app.logger.error({ source: "nacos" }, msg); },
     debug(msg: string) { app.logger.debug({ source: "nacos" }, msg); },
-    log(msg: string)   { app.logger.debug({ source: "nacos" }, msg); },
+    log(msg: string) { app.logger.debug({ source: "nacos" }, msg); },
   };
 }
 
