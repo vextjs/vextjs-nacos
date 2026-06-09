@@ -1,6 +1,6 @@
 {
   "name": "vextjs-nacos",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Official Nacos plugin for VextJS — service registry/discovery and dynamic config management",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -35,7 +35,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vextjs/vextjs-nacos.git"
+    "url": "git+https://github.com/vextjs/vextjs-nacos.git"
   },
   "keywords": [
     "vextjs",
@@ -47,7 +47,7 @@
     "config-center"
   ],
   "dependencies": {
-    "nacos": "^2.6.1"
+    "nacos": "2.6.1"
   },
   "peerDependencies": {
     "vextjs": ">=0.3.4"
@@ -58,9 +58,9 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.8.0",
-    "vextjs": ">=0.3.4",
-    "vitest": "^3.0.0"
+    "@types/node": "22.19.17",
+    "typescript": "5.9.3",
+    "vextjs": "0.3.4",
+    "vitest": "3.2.4"
   }
 }

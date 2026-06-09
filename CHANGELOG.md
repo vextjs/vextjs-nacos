@@ -4,6 +4,13 @@ All notable changes to `vextjs-nacos` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.6] — 2026-06-09
+
+### 变更
+
+- **依赖固定**：将 `package.json` 中 direct runtime 与 dev dependencies 固定为 `package-lock.json` 已解析精确版本，降低消费者安装时的依赖漂移风险。
+- **兼容性边界**：保留 `peerDependencies.vextjs >=0.3.4` 兼容范围，仅将开发依赖 `vextjs` 固定为本仓库验证基线。
+
 ## [0.2.3] — 2026-05-13
 
 ### 变更
