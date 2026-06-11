@@ -21,9 +21,54 @@
  * @module vextjs-nacos
  */
 
-import { NacosNamingClient, NacosConfigClient } from "nacos";
 import { definePlugin } from "vextjs";
 import type { VextApp, VextPluginContext } from "vextjs";
+
+interface NacosConfigClientLike {
+  getConfig(dataId: string, group: string): Promise<unknown>;
+  subscribe(
+    entry: { dataId: string; group: string },
+    callback: (content: unknown) => void,
+  ): void;
+  close(): void | Promise<void>;
+}
+
+interface NacosNamingClientLike {
+  ready(): Promise<void>;
+  registerInstance(
+    serviceName: string,
+    instance: unknown,
+    groupName?: string,
+  ): Promise<void>;
+  selectInstances(
+    serviceName: string,
+    groupName?: string,
+    clusters?: string,
+    healthy?: boolean,
+  ): Promise<Array<{ ip: string; port: number }>>;
+  deregisterInstance(
+    serviceName: string,
+    instance: unknown,
+    groupName?: string,
+  ): Promise<void>;
+}
+
+interface NacosSdkLike {
+  NacosConfigClient: new (options: Record<string, unknown>) => NacosConfigClientLike;
+  NacosNamingClient: new (options: Record<string, unknown>) => NacosNamingClientLike;
+}
+
+let nacosSdkPromise: Promise<NacosSdkLike> | undefined;
+
+async function loadNacosSdk(): Promise<NacosSdkLike> {
+  nacosSdkPromise ??= import("nacos").then((sdk) => sdk as unknown as NacosSdkLike);
+  try {
+    return await nacosSdkPromise;
+  } catch (error) {
+    nacosSdkPromise = undefined;
+    throw error;
+  }
+}
 
 // ── 公共类型定义 ────────────────────────────────────────────
 
@@ -48,8 +93,10 @@ export interface NacosConfigOptions {
 }
 
 export interface NacosPluginOptions {
+  /** 全局开关；false 时不加载 nacos SDK、不创建客户端 */
+  enabled?: boolean;
   /** Nacos 服务器地址，如 "127.0.0.1:8848" */
-  serverAddr: string;
+  serverAddr?: string;
   /** 命名空间，默认 "public" */
   namespace?: string;
   /** Nacos 鉴权用户名（开启鉴权的 Nacos 必填）*/
@@ -98,7 +145,7 @@ export interface NacosBootstrapProvider {
 
 export interface NacosExtension {
   /** NacosNamingClient 原生实例，可直接调用 SDK 全部 API */
-  naming: NacosNamingClient;
+  naming: NacosNamingClientLike;
   /**
    * 服务发现（随机负载均衡，仅返回健康实例）
    * @param serviceName 目标服务名
@@ -239,7 +286,7 @@ function parseConfigObject(
 }
 
 async function loadConfigEntry(
-  configClient: NacosConfigClient,
+  configClient: NacosConfigClientLike,
   entry: Required<NacosConfigOptions>,
 ): Promise<Record<string, unknown> | null> {
   const raw = await configClient.getConfig(entry.dataId, entry.group);
@@ -277,6 +324,7 @@ export function createNacosBootstrapProvider(
     timeoutMs: options.timeoutMs,
     required: options.required,
     async load() {
+      const { NacosConfigClient } = await loadNacosSdk();
       const configClient = new NacosConfigClient(createConfigClientOptions(options));
 
       try {
@@ -291,7 +339,7 @@ export function createNacosBootstrapProvider(
 
         return mergeConfigEntries(entries, state);
       } finally {
-        configClient.close();
+        await configClient.close();
       }
     },
   };
@@ -315,15 +363,26 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
         ...options,
       };
 
-      const configEntries = normalizeConfigEntries(opts);
+      if (opts.enabled === false) {
+        app.logger.debug("[vextjs-nacos] disabled, skipping setup");
+        return;
+      }
 
       if (!opts.serverAddr) {
-        app.logger.warn("[vextjs-nacos] serverAddr missing, plugin disabled");
+        app.logger.debug("[vextjs-nacos] serverAddr missing, plugin disabled");
+        return;
+      }
+
+      const configEntries = normalizeConfigEntries(opts);
+
+      if (configEntries.length === 0 && !opts.service) {
+        app.logger.debug("[vextjs-nacos] no config/service configured, plugin disabled");
         return;
       }
 
       const namespace = opts.namespace ?? DEFAULT_NAMESPACE;
       const logger = createNacosLogger(app);
+      const { NacosConfigClient, NacosNamingClient } = await loadNacosSdk();
 
       // ⚠️ LIFO 顺序设计：
       //   先处理 config（先注册 config.close onClose → LIFO 后执行）
@@ -393,7 +452,7 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
         // 配置客户端关闭 onClose（先注册 → LIFO 后执行）
         app.onClose(async () => {
           try {
-            configClient.close();
+            await configClient.close();
             app.logger.debug("[vextjs-nacos] Config client closed");
           } catch (err) {
             app.logger.warn(

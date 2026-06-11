@@ -4,6 +4,16 @@ All notable changes to `vextjs-nacos` will be documented in this file.
 
 ## [Unreleased]
 
+暂无。
+
+## [0.2.7] — 2026-06-11
+
+### 变更
+
+- **启动轻量化**：包入口移除 `nacos` SDK 顶层 runtime import，`enabled:false`、无 `serverAddr`、无 config/service 时不创建 SDK client。
+- **懒加载保持兼容**：真实 config/service/bootstrap `load()` 路径仍动态导入官方 `NacosConfigClient` / `NacosNamingClient`，关闭和注销逻辑保持不变。
+- **验证基线更新**：开发验证依赖同步到 `vextjs@0.3.24` 与 `vitest@3.2.6`，并通过 `npm audit --audit-level=high`。
+
 ## [0.2.6] — 2026-06-09
 
 ### 变更

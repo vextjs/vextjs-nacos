@@ -13,6 +13,7 @@
 - ✅ **启动期配置**：`createNacosBootstrapProvider()` 可在配置冻结前从 Nacos 拉取并合并远程配置
 - ✅ **多配置合并**：支持 `config + configs` 双轨声明，按顺序深合并、后者优先
 - ✅ **优雅关闭**：应用关闭时按 LIFO 顺序自动注销实例并关闭客户端
+- ✅ **轻量加载**：无 `serverAddr`、`enabled:false` 或无 config/service 时不加载 `nacos` SDK、不创建客户端
 - ✅ **完整类型**：通过 `declare module "vextjs"` 自动增强 `VextApp` / `VextConfig` 类型
 
 ## 兼容性
@@ -21,7 +22,7 @@
 |------|------|
 | Node.js | `>= 18` |
 | vextjs | `>= 0.3.4`（peerDependency, optional）|
-| nacos | `^2.6.1`（已实测）|
+| nacos | `2.6.1`（已实测，当前包内固定依赖）|
 
 ## 安装
 
@@ -34,9 +35,9 @@ npm install vextjs@^0.3.4 vextjs-nacos
 
 ## 发布说明
 
-- 当前发版线：`0.2.3`
-- 当前 `vextjs` 兼容基线：`>= 0.3.4`
-- 本次发版不引入新的运行时 API，只收口已发布 `vextjs@0.3.4` 对齐所需的版本与文档元数据
+- 当前发版线：`0.2.7`
+- 当前 `vextjs` 兼容基线：`>= 0.3.4`（本轮验证基线：`vextjs@0.3.24`）
+- 本次发版不引入新的运行时 API，只收口 Nacos SDK 懒加载、no-op 关闭路径与发布前安全验证
 
 ## 快速开始
 
@@ -196,13 +197,16 @@ export default defineBootstrapConfig({
 
 | 字段 | 类型 | 必填 | 默认 | 说明 |
 |------|------|:----:|------|------|
-| `serverAddr` | `string` | ✅ | — | Nacos 服务器地址，如 `"127.0.0.1:8848"` |
+| `enabled` | `boolean` | — | `true` | 为 `false` 时直接跳过 setup，不加载 `nacos` SDK、不创建客户端 |
+| `serverAddr` | `string` | 条件必填 | — | Nacos 服务器地址；缺失时插件作为 no-op 跳过 |
 | `namespace` | `string` | — | `"public"` | 命名空间 |
 | `service` | `NacosServiceOptions` | — | — | 服务注册（缺省则不注册）|
 | `config` | `NacosConfigOptions` | — | — | 单个配置中心配置 |
 | `configs` | `NacosConfigOptions[]` | — | — | 多个配置中心配置，按声明顺序深合并、后者优先 |
 
 > 选项与 `app.config.nacos` 合并，**显式参数优先**。
+
+`nacosPlugin()` 的包入口不会顶层加载 `nacos` SDK。只有存在有效 `serverAddr` 且至少配置了 `config` / `configs` / `service` 时，插件 setup 才会动态导入 SDK 并创建对应 client。`createNacosBootstrapProvider()` 也只在 `load()` 执行时导入 SDK。
 
 ### `app.nacos.discover(serviceName, group?)`
 
@@ -273,6 +277,7 @@ NACOS_SERVER_ADDR=prod-nacos:8848 NACOS_NAMESPACE=prod node dist/index.js
 | `NacosConfigClient` 无 `ready()` | nacos SDK 设计如此，构造后即可使用 |
 | `NamingClient.serverList` vs `ConfigClient.serverAddr` | 两个子包字段名不同，本插件已统一封装为 `serverAddr` |
 | bootstrap helper vs 普通插件 | helper 只处理启动期配置；运行期注册/发现/订阅仍使用 `nacosPlugin()` |
+| SDK 懒加载 | 包入口、`enabled:false`、无 `serverAddr`、无 config/service 都不会加载 `nacos` SDK |
 
 ## 许可
 

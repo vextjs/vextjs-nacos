@@ -7,20 +7,26 @@ const mockReady = vi.fn();
 const mockRegisterInstance = vi.fn();
 const mockSelectInstances = vi.fn();
 const mockDeregisterInstance = vi.fn();
-
-vi.mock("nacos", () => ({
-  NacosConfigClient: vi.fn(() => ({
-    getConfig: mockGetConfig,
-    subscribe: mockSubscribe,
-    close: mockCloseConfig,
-  })),
-  NacosNamingClient: vi.fn(() => ({
-    ready: mockReady,
-    registerInstance: mockRegisterInstance,
-    selectInstances: mockSelectInstances,
-    deregisterInstance: mockDeregisterInstance,
-  })),
+const mockLoadNacosModule = vi.fn();
+const mockNacosConfigClient = vi.fn(() => ({
+  getConfig: mockGetConfig,
+  subscribe: mockSubscribe,
+  close: mockCloseConfig,
 }));
+const mockNacosNamingClient = vi.fn(() => ({
+  ready: mockReady,
+  registerInstance: mockRegisterInstance,
+  selectInstances: mockSelectInstances,
+  deregisterInstance: mockDeregisterInstance,
+}));
+
+vi.mock("nacos", () => {
+  mockLoadNacosModule();
+  return {
+    NacosConfigClient: mockNacosConfigClient,
+    NacosNamingClient: mockNacosNamingClient,
+  };
+});
 
 vi.mock("vextjs", () => ({
   definePlugin: (plugin: unknown) => plugin,
@@ -55,6 +61,23 @@ function createAppMock(nacos: Record<string, unknown>) {
 describe("createNacosBootstrapProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("does not create SDK client until load()", async () => {
+    mockGetConfig.mockResolvedValue(JSON.stringify({ ok: true }));
+
+    const provider = createNacosBootstrapProvider({
+      serverAddr: "127.0.0.1:8848",
+      config: { dataId: "app.json" },
+    });
+
+    expect(mockNacosConfigClient).not.toHaveBeenCalled();
+    expect(mockLoadNacosModule).not.toHaveBeenCalled();
+
+    await provider.load();
+
+    expect(mockLoadNacosModule).toHaveBeenCalledTimes(1);
+    expect(mockNacosConfigClient).toHaveBeenCalledTimes(1);
   });
 
   it("loads and deep merges config + configs in declaration order", async () => {
@@ -151,6 +174,49 @@ describe("nacosPlugin", () => {
     vi.clearAllMocks();
   });
 
+  it("enabled=false does not create clients", async () => {
+    const { app } = createAppMock({
+      enabled: false,
+      serverAddr: "127.0.0.1:8848",
+      config: { dataId: "base.json" },
+      service: { name: "svc", ip: "127.0.0.1", port: 3000 },
+    });
+
+    await nacosPlugin().setup(app as never);
+
+    expect(mockLoadNacosModule).not.toHaveBeenCalled();
+    expect(mockNacosConfigClient).not.toHaveBeenCalled();
+    expect(mockNacosNamingClient).not.toHaveBeenCalled();
+    expect(app.onClose).not.toHaveBeenCalled();
+    expect(app.logger.debug).toHaveBeenCalledWith(expect.stringContaining("disabled"));
+  });
+
+  it("serverAddr missing does not create clients", async () => {
+    const { app } = createAppMock({
+      config: { dataId: "base.json" },
+    });
+
+    await nacosPlugin().setup(app as never);
+
+    expect(mockLoadNacosModule).not.toHaveBeenCalled();
+    expect(mockNacosConfigClient).not.toHaveBeenCalled();
+    expect(mockNacosNamingClient).not.toHaveBeenCalled();
+    expect(app.logger.debug).toHaveBeenCalledWith(expect.stringContaining("serverAddr"));
+  });
+
+  it("serverAddr without config/service stays no-op", async () => {
+    const { app } = createAppMock({
+      serverAddr: "127.0.0.1:8848",
+    });
+
+    await nacosPlugin().setup(app as never);
+
+    expect(mockLoadNacosModule).not.toHaveBeenCalled();
+    expect(mockNacosConfigClient).not.toHaveBeenCalled();
+    expect(mockNacosNamingClient).not.toHaveBeenCalled();
+    expect(app.logger.debug).toHaveBeenCalledWith(expect.stringContaining("no config/service"));
+  });
+
   it("merges multiple remote configs and updates merged state on subscription", async () => {
     const subscribers = new Map<string, (content: unknown) => void>();
 
@@ -215,6 +281,42 @@ describe("nacosPlugin", () => {
 
     await closeHandlers[0]?.();
     expect(mockCloseConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers and deregisters service when service config exists", async () => {
+    mockReady.mockResolvedValue(undefined);
+    mockRegisterInstance.mockResolvedValue(undefined);
+    mockSelectInstances.mockResolvedValue([{ ip: "10.0.0.5", port: 3001 }]);
+    mockDeregisterInstance.mockResolvedValue(undefined);
+
+    const { app, closeHandlers } = createAppMock({
+      serverAddr: "127.0.0.1:8848",
+      service: {
+        name: "order-service",
+        ip: "127.0.0.1",
+        port: 3000,
+        metadata: { version: "1.0.0" },
+      },
+    });
+
+    await nacosPlugin().setup(app as never);
+
+    expect(mockNacosNamingClient).toHaveBeenCalledTimes(1);
+    expect(mockReady).toHaveBeenCalledTimes(1);
+    expect(mockRegisterInstance).toHaveBeenCalledWith(
+      "order-service",
+      { ip: "127.0.0.1", port: 3000, metadata: { version: "1.0.0" } },
+      "DEFAULT_GROUP",
+    );
+
+    await expect(app.nacos.discover("user-service")).resolves.toBe("http://10.0.0.5:3001");
+
+    await closeHandlers[0]?.();
+    expect(mockDeregisterInstance).toHaveBeenCalledWith(
+      "order-service",
+      { ip: "127.0.0.1", port: 3000 },
+      "DEFAULT_GROUP",
+    );
   });
 });
 
