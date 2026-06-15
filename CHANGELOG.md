@@ -6,6 +6,14 @@ All notable changes to `vextjs-nacos` will be documented in this file.
 
 暂无。
 
+## [0.2.8] — 2026-06-15
+
+### 修复
+
+- **动态配置更新**：修复 Nacos 订阅收到合法 JSON object 后重复调用 `app.extend("remoteConfig")` 被 VextJS 覆盖保护拒绝的问题；后续更新会原地刷新稳定的 `app.remoteConfig` 引用。
+- **告警准确性**：订阅更新时区分配置解析失败与远程配置同步失败，避免把非解析异常误报为 `Updated config parse failed (not JSON object)`。
+- **验证依赖安全**：开发验证基线同步到 `vextjs@0.3.26`，并通过 npm overrides 固定 `esbuild@0.28.1` 以规避 dev 工具链高危 audit。
+
 ## [0.2.7] — 2026-06-11
 
 ### 变更

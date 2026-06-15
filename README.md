@@ -35,9 +35,9 @@ npm install vextjs@^0.3.4 vextjs-nacos
 
 ## 发布说明
 
-- 当前发版线：`0.2.7`
-- 当前 `vextjs` 兼容基线：`>= 0.3.4`（本轮验证基线：`vextjs@0.3.24`）
-- 本次发版不引入新的运行时 API，只收口 Nacos SDK 懒加载、no-op 关闭路径与发布前安全验证
+- 当前发版线：`0.2.8`
+- 当前 `vextjs` 兼容基线：`>= 0.3.4`（本轮验证基线：`vextjs@0.3.26`）
+- 本次发版不引入新的运行时 API，修复 Nacos 订阅更新时 `app.remoteConfig` 不刷新并误报解析失败的问题；开发验证树固定 `esbuild@0.28.1` 以满足高危 audit 门禁
 
 ## 快速开始
 
@@ -228,6 +228,7 @@ const features = app.remoteConfig?.features ?? {};
 ```
 
 > Nacos 配置内容需为合法 JSON 对象。非 JSON 对象内容会触发 warn 日志并保留上一版配置。
+> `app.remoteConfig` 使用稳定对象引用；配置订阅更新时会原地刷新内容，因此已持有该对象引用的代码也能看到最新字段。
 
 ### `createNacosBootstrapProvider(options)`
 

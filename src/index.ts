@@ -402,10 +402,20 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
         // ❌ NacosConfigClient 在 nacos@2.6.1 中没有 ready() 方法
 
         const state = new Map<string, Record<string, unknown>>();
+        const remoteConfigState: Record<string, unknown> = {};
+        let remoteConfigAttached = false;
 
         const syncRemoteConfig = () => {
           const merged = mergeConfigEntries(configEntries, state);
-          app.extend("remoteConfig", merged);
+          for (const key of Object.keys(remoteConfigState)) {
+            delete remoteConfigState[key];
+          }
+          Object.assign(remoteConfigState, merged);
+
+          if (!remoteConfigAttached) {
+            app.extend("remoteConfig", remoteConfigState);
+            remoteConfigAttached = true;
+          }
         };
 
         for (const entry of configEntries) {
@@ -430,8 +440,15 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
             (content: unknown) => {
               if (typeof content !== "string") return;
 
+              let patch: Record<string, unknown> | null;
               try {
-                const patch = parseConfigObject(content, key);
+                patch = parseConfigObject(content, key);
+              } catch (err) {
+                app.logger.warn((err as Error).message);
+                return;
+              }
+
+              try {
                 if (patch) {
                   state.set(key, patch);
                 } else {
@@ -440,9 +457,9 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
 
                 syncRemoteConfig();
                 app.logger.info(`[vextjs-nacos] Remote config updated: ${key}`);
-              } catch {
+              } catch (err) {
                 app.logger.warn(
-                  `[vextjs-nacos] Updated config parse failed (not JSON object): ${key}`,
+                  `[vextjs-nacos] Remote config update failed for ${key}: ${(err as Error).message}`,
                 );
               }
             },

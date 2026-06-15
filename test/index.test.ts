@@ -48,6 +48,9 @@ function createAppMock(nacos: Record<string, unknown>) {
       error: vi.fn(),
     },
     extend: vi.fn((key: string, value: unknown) => {
+      if (key in app) {
+        throw new Error(`cannot override ${key}`);
+      }
       (app as Record<string, unknown>)[key] = value;
     }),
     onClose: vi.fn((handler: () => Promise<void> | void) => {
@@ -262,11 +265,16 @@ describe("nacosPlugin", () => {
       tags: ["base"],
       database: { config: { url: "mongodb://db" } },
     });
+    expect(app.extend).toHaveBeenCalledTimes(1);
+
+    const remoteConfigRef = app.remoteConfig;
 
     subscribers
       .get("db.json@admin-service")
       ?.(JSON.stringify({ database: { config: { url: "mongodb://override", poolSize: 20 } } }));
 
+    expect(app.remoteConfig).toBe(remoteConfigRef);
+    expect(app.extend).toHaveBeenCalledTimes(1);
     expect(app.remoteConfig).toEqual({
       logger: { level: "info" },
       features: { search: true },
@@ -277,6 +285,27 @@ describe("nacosPlugin", () => {
           poolSize: 20,
         },
       },
+    });
+
+    subscribers.get("db.json@admin-service")?.("");
+
+    expect(app.remoteConfig).toBe(remoteConfigRef);
+    expect(app.extend).toHaveBeenCalledTimes(1);
+    expect(app.remoteConfig).toEqual({
+      logger: { level: "info" },
+      features: { search: true },
+      tags: ["base"],
+    });
+
+    subscribers.get("db.json@admin-service")?.("not json");
+
+    expect(app.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("Config parse failed for db.json@admin-service"),
+    );
+    expect(app.remoteConfig).toEqual({
+      logger: { level: "info" },
+      features: { search: true },
+      tags: ["base"],
     });
 
     await closeHandlers[0]?.();
