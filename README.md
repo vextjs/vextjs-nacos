@@ -1,9 +1,9 @@
-# vextjs-nacos
+# @devcodex/nacos
 
 > VextJS 官方 Nacos 集成插件 — 服务注册/发现 + 动态配置管理 + bootstrap config provider helper
 
-[![npm](https://img.shields.io/npm/v/vextjs-nacos.svg)](https://www.npmjs.com/package/vextjs-nacos)
-[![License](https://img.shields.io/npm/l/vextjs-nacos.svg)](./LICENSE)
+[![npm](https://img.shields.io/npm/v/@devcodex/nacos.svg)](https://www.npmjs.com/package/@devcodex/nacos)
+[![License](https://img.shields.io/npm/l/@devcodex/nacos.svg)](./LICENSE)
 
 ## 特性
 
@@ -27,7 +27,7 @@
 ## 安装
 
 ```bash
-npm install vextjs@^0.3.4 vextjs-nacos
+npm install vextjs@^0.3.4 @devcodex/nacos
 ```
 
 常规消费场景直接走 npm 版本依赖即可，不需要本地 `link`。
@@ -35,7 +35,7 @@ npm install vextjs@^0.3.4 vextjs-nacos
 
 ## 发布说明
 
-- 当前发版线：`0.2.8`
+- 当前发版线：`0.2.9`
 - 当前 `vextjs` 兼容基线：`>= 0.3.4`（本轮验证基线：`vextjs@0.3.26`）
 - 本次发版不引入新的运行时 API，修复 Nacos 订阅更新时 `app.remoteConfig` 不刷新并误报解析失败的问题；开发验证树固定 `esbuild@0.28.1` 以满足高危 audit 门禁
 
@@ -83,7 +83,7 @@ export default {
 ### 2. 注册插件（src/plugins/nacos.ts）
 
 ```typescript
-import { nacosPlugin } from "vextjs-nacos";
+import { nacosPlugin } from "@devcodex/nacos";
 
 // 自动读取 vext.config.ts 中的 nacos 配置
 export default nacosPlugin();
@@ -92,7 +92,7 @@ export default nacosPlugin();
 或显式传参（覆盖 `vext.config.ts`）：
 
 ```typescript
-import { nacosPlugin } from "vextjs-nacos";
+import { nacosPlugin } from "@devcodex/nacos";
 
 export default nacosPlugin({
   serverAddr: "127.0.0.1:8848",
@@ -148,7 +148,7 @@ export default defineRoutes((app) => {
 ```typescript
 // src/config/bootstrap.ts
 import { defineBootstrapConfig } from "vextjs";
-import { createNacosBootstrapProvider } from "vextjs-nacos";
+import { createNacosBootstrapProvider } from "@devcodex/nacos";
 
 export default defineBootstrapConfig({
   providers: [

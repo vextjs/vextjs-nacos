@@ -1,10 +1,17 @@
 # Changelog
 
-All notable changes to `vextjs-nacos` will be documented in this file.
+All notable changes to `@devcodex/nacos` will be documented in this file.
 
 ## [Unreleased]
 
-暂无。
+- Rename the maintained package entry to `@devcodex/nacos`; historical `vextjs-nacos` releases remain available on npm.
+
+## [0.2.9] — 2026-07-27
+
+### 变更
+
+- **命名迁移**：包名迁移到 `@devcodex/nacos`，仓库入口迁移到 `devcodex-labs/nacos`。
+- **兼容边界**：保留运行时日志前缀与 `peerDependencies.vextjs`，避免对既有 VextJS 消费者产生隐藏 breaking change。
 
 ## [0.2.8] — 2026-06-15
 

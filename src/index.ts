@@ -1,5 +1,5 @@
 /**
- * vextjs-nacos — VextJS 官方 Nacos 集成插件
+ * @devcodex/nacos — VextJS 官方 Nacos 集成插件
  *
  * 功能：
  *   - 服务注册与发现（NacosNamingClient）
@@ -8,7 +8,7 @@
  *
  * 用法：
  *   // src/plugins/nacos.ts
- *   import { nacosPlugin } from "vextjs-nacos";
+ *   import { nacosPlugin } from "@devcodex/nacos";
  *   export default nacosPlugin();   // 读取 vext.config.ts 中的 nacos 配置
  *
  *   // 或显式传参：
@@ -18,7 +18,7 @@
  *     config: { dataId: "order-service", group: "DEFAULT_GROUP" },
  *   });
  *
- * @module vextjs-nacos
+ * @module @devcodex/nacos
  */
 
 import { definePlugin } from "vextjs";
