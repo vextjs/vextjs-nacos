@@ -7,6 +7,7 @@ const mockReady = vi.fn();
 const mockRegisterInstance = vi.fn();
 const mockSelectInstances = vi.fn();
 const mockDeregisterInstance = vi.fn();
+const mockCloseNaming = vi.fn();
 const mockLoadNacosModule = vi.fn();
 const mockNacosConfigClient = vi.fn(() => ({
   getConfig: mockGetConfig,
@@ -18,6 +19,7 @@ const mockNacosNamingClient = vi.fn(() => ({
   registerInstance: mockRegisterInstance,
   selectInstances: mockSelectInstances,
   deregisterInstance: mockDeregisterInstance,
+  close: mockCloseNaming,
 }));
 
 vi.mock("nacos", () => {
@@ -317,6 +319,7 @@ describe("nacosPlugin", () => {
     mockRegisterInstance.mockResolvedValue(undefined);
     mockSelectInstances.mockResolvedValue([{ ip: "10.0.0.5", port: 3001 }]);
     mockDeregisterInstance.mockResolvedValue(undefined);
+    mockCloseNaming.mockResolvedValue(undefined);
 
     const { app, closeHandlers } = createAppMock({
       serverAddr: "127.0.0.1:8848",
@@ -345,6 +348,32 @@ describe("nacosPlugin", () => {
       "order-service",
       { ip: "127.0.0.1", port: 3000 },
       "DEFAULT_GROUP",
+    );
+    expect(mockCloseNaming).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes naming client when deregistration fails", async () => {
+    mockReady.mockResolvedValue(undefined);
+    mockRegisterInstance.mockResolvedValue(undefined);
+    mockDeregisterInstance.mockRejectedValueOnce(new Error("deregister failed"));
+    mockCloseNaming.mockResolvedValue(undefined);
+
+    const { app, closeHandlers } = createAppMock({
+      serverAddr: "127.0.0.1:8848",
+      service: {
+        name: "order-service",
+        ip: "127.0.0.1",
+        port: 3000,
+      },
+    });
+
+    await nacosPlugin().setup(app as never);
+    await expect(closeHandlers[0]!()).resolves.toBeUndefined();
+
+    expect(mockDeregisterInstance).toHaveBeenCalledTimes(1);
+    expect(mockCloseNaming).toHaveBeenCalledTimes(1);
+    expect(app.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("Deregister failed"),
     );
   });
 });

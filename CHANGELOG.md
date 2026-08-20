@@ -4,7 +4,16 @@ All notable changes to `@devcodex/nacos` will be documented in this file.
 
 ## [Unreleased]
 
-- Rename the maintained package entry to `@devcodex/nacos`; historical `vextjs-nacos` releases remain available on npm.
+## [0.2.10] — 2026-08-20
+
+### 修复
+
+- **优雅关闭**：服务实例注销后关闭 Nacos Naming Client，释放心跳、订阅与 push receiver 资源；即使注销失败也继续关闭客户端。
+
+### 安全
+
+- **运行时依赖**：升级到 `nacos@2.6.3`，锁定解析树中的 `brace-expansion@1.1.18`，清除生产依赖高危审计项。
+- **上游残留**：`nacos-naming@2.6.3` 仍间接依赖 `uuid@3.4.0`，上游暂无兼容修复；本包不使用仅对仓库生效的 override 掩盖该中危项。
 
 ## [0.2.9] — 2026-07-27
 

@@ -22,7 +22,7 @@
 |------|------|
 | Node.js | `>= 18` |
 | vextjs | `>= 0.3.4`（peerDependency, optional）|
-| nacos | `2.6.1`（已实测，当前包内固定依赖）|
+| nacos | `2.6.3`（已实测，当前包内固定依赖）|
 
 ## 安装
 
@@ -35,9 +35,9 @@ npm install vextjs@^0.3.4 @devcodex/nacos
 
 ## 发布说明
 
-- 当前发版线：`0.2.9`
+- 当前发版线：`0.2.10`
 - 当前 `vextjs` 兼容基线：`>= 0.3.4`（本轮验证基线：`vextjs@0.3.26`）
-- 本次发版不引入新的运行时 API，修复 Nacos 订阅更新时 `app.remoteConfig` 不刷新并误报解析失败的问题；开发验证树固定 `esbuild@0.28.1` 以满足高危 audit 门禁
+- 本次发版不引入新的运行时 API，修复应用关闭后 Naming Client 的心跳、订阅与 push receiver 资源残留，并升级运行时 `nacos@2.6.3`；生产依赖高危 audit 已清零
 
 ## 快速开始
 
@@ -255,7 +255,7 @@ const features = app.remoteConfig?.features ?? {};
 1. **先**调用 `deregisterInstance()`（停止接受新流量）
 2. **再**调用 `configClient.close()`（关闭配置订阅）
 
-> 注：`NacosNamingClient` 在 nacos@2.6.1 中**没有** `close()` 方法，仅注销实例即可（进程退出后底层连接自然释放）。
+> 注：`nacos@2.6.3` 的 `NacosNamingClient` 运行时提供 `close()`，但上游类型声明尚未暴露该方法。本插件会在注销实例后进行兼容调用，以释放心跳、订阅与 push receiver 资源。
 
 ## 多环境部署
 
@@ -274,7 +274,7 @@ NACOS_SERVER_ADDR=prod-nacos:8848 NACOS_NAMESPACE=prod node dist/index.js
 | 项 | 说明 |
 |----|------|
 | `NacosNamingClient.selectInstances` 第 3 参数 | 实际是 `clusters: string`，本插件已正确传入 `undefined` 跳过 |
-| `NacosNamingClient` 无 `close()` | nacos SDK 设计如此，仅 `deregisterInstance()` 即可 |
+| `NacosNamingClient.close()` 类型缺失 | 上游运行时支持但类型未声明；本插件在 `deregisterInstance()` 后兼容调用以释放客户端资源 |
 | `NacosConfigClient` 无 `ready()` | nacos SDK 设计如此，构造后即可使用 |
 | `NamingClient.serverList` vs `ConfigClient.serverAddr` | 两个子包字段名不同，本插件已统一封装为 `serverAddr` |
 | bootstrap helper vs 普通插件 | helper 只处理启动期配置；运行期注册/发现/订阅仍使用 `nacosPlugin()` |

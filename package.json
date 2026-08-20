@@ -1,6 +1,6 @@
 {
   "name": "@devcodex/nacos",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Official Nacos plugin for VextJS — service registry/discovery and dynamic config management",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -55,7 +55,7 @@
     "config-center"
   ],
   "dependencies": {
-    "nacos": "2.6.1"
+    "nacos": "2.6.3"
   },
   "peerDependencies": {
     "vextjs": ">=0.3.4"

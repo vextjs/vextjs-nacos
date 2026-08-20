@@ -51,6 +51,7 @@ interface NacosNamingClientLike {
     instance: unknown,
     groupName?: string,
   ): Promise<void>;
+  close(): Promise<void>;
 }
 
 interface NacosSdkLike {
@@ -531,7 +532,7 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
         });
 
         // 服务注销 onClose（最后注册 → LIFO 最先执行：先停流量）
-        // 注意：NacosNamingClient 在 nacos@2.6.1 中没有 close() 方法，仅注销实例
+        // NamingClient.close() 会释放心跳、订阅和 push receiver 资源。
         app.onClose(async () => {
           try {
             await namingClient.deregisterInstance(
@@ -546,6 +547,15 @@ export function nacosPlugin(options: Partial<NacosPluginOptions> = {}) {
             app.logger.warn(
               `[vextjs-nacos] Deregister failed: ${(err as Error).message}`,
             );
+          } finally {
+            try {
+              await namingClient.close();
+              app.logger.debug("[vextjs-nacos] Naming client closed");
+            } catch (err) {
+              app.logger.warn(
+                `[vextjs-nacos] Naming client close failed: ${(err as Error).message}`,
+              );
+            }
           }
         });
       }
